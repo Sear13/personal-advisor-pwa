@@ -274,4 +274,4 @@ curl -X POST http://127.0.0.1:5000/api/chat \
 You should receive JSON with the model’s reply.
 
 License: MIT (see LICENSE)
-Author: Your Name / Your Org
+Author: Dimitrios Katsikis 
