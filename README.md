@@ -3,141 +3,153 @@ Personal Advisor PWA (ChatBot)
 An installable Progressive Web App with a small Node/Express backend that proxies to OpenRouter (LLM provider).
 No build step, no database — configure .env, run the server, and you’re up.
 
-0) Repository
+Repository
 
-Repository: https://github.com/<your-org-or-user>/<your-repo>
+Repo: https://github.com/Sear13/personal-advisor-pwa
 
-Replace with your real repo link after you paste this file.
-
-1) Requirements
+Requirements
 
 Node.js 18+ (LTS recommended)
 
 An OpenRouter API key → https://openrouter.ai
 
-(Production) A Linux server (Ubuntu 22.04+), Nginx reverse proxy, and HTTPS certificate (Let’s Encrypt)
+(Production) Ubuntu 22.04+ server, Nginx reverse proxy, HTTPS (Let’s Encrypt)
 
-2) Project layout (what matters)
+Project layout
 ai-index/
-  app/                  # front-end modules (UI, client API, helpers, PWA helpers)
+  app/                  # front-end modules (UI, API client, helpers, PWA helpers)
   assets/               # backgrounds, icons, favicon
   downloads/            # generated PDFs/TXTs (served statically)
   server/
     server.js           # Express server (serves frontend + /api/chat)
     logs/               # JSONL chat logs (gitignored)
+    .env                # secrets (create from .env.example)
   index.html            # main page
-  style.css             # UI styles
-  sw.js                 # service worker (cache app shell)
+  style.css             # styles
+  sw.js                 # service worker (PWA)
   manifest.webmanifest  # PWA manifest
 package.json
-.gitignore
 
 
-No bundler or build tools — all static files are served by Express.
+No bundler/build tools — all static files are served by Express.
 
-3) Quick start (local)
+Quick start (local)
 
 Works on Windows/macOS/Linux.
 
-Clone
+# 1) Get the code
+git clone https://github.com/Sear13/personal-advisor-pwa.git
+cd personal-advisor-pwa
 
-git clone https://github.com/<your-org-or-user>/<your-repo>.git
-cd <your-repo>
-
-
-Install
-
+# 2) Install dependencies
 npm install
 
+# 3) Configure your API key
+cp ai-index/server/.env.example ai-index/server/.env
+# then edit ai-index/server/.env and set:
+# OPENROUTER_API_KEY=sk-xxxxxxxxxxxxxxxx...
 
-Create .env
-Create ai-index/server/.env with:
-
-# REQUIRED
-OPENROUTER_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
-
-# OPTIONAL
-# If set, all /api/chat requests must include x-classroom-key=<this secret>
-CLASSROOM_SECRET=
-
-# CORS: which origin may call /api/chat (frontend origin)
-ALLOWED_ORIGIN=http://localhost:5000
-
-# Optional housekeeping
-CLEAN_ON_BOOT=0
-MAX_DOWNLOAD_AGE_HOURS=24
-MAX_LOG_AGE_DAYS=7
-
-
-Run
-
+# 4) Run the server
 npm run start
 
+# 5) Open the app
+# http://localhost:5000
 
-Open: http://localhost:5000
 
-Dev mode with auto-restart (optional):
+Optional dev mode (auto-restart on code changes):
 
 npm run dev
 
-4) Using the app
 
-Type a message and press Send.
+Scripts (must exist in package.json):
 
-Stop cancels the current request.
+{
+  "scripts": {
+    "start": "node ai-index/server/server.js",
+    "dev": "nodemon ai-index/server/server.js"
+  }
+}
 
-Reload ↻ reloads the page (and nudges the Service Worker to update).
+What to edit (if needed)
 
-The app is installable as a PWA (Chrome/Brave/Edge show an “Install” icon, or you’ll see an Install button when allowed).
+API key: ai-index/server/.env → OPENROUTER_API_KEY=...
 
-5) Production deployment (Ubuntu + Nginx)
+CORS origin: ALLOWED_ORIGIN → where the site is served from
 
-Below is a copy-paste friendly guide for a typical Ubuntu VPS.
+local: http://localhost:5000
 
-5.1 Install Node.js (LTS) & git
-# as a non-root sudo user
+production: https://advisor.your-domain.com
+
+Icons/backgrounds: ai-index/assets/
+
+Frontend: ai-index/app/, ai-index/index.html, ai-index/style.css
+
+Backend: ai-index/server/server.js
+
+Using the app
+
+Type a message → Send
+
+Stop → cancels the current request
+
+↻ Reload → refreshes the page (nudges the Service Worker to update)
+
+Install as a PWA (Chrome/Brave/Edge show an Install icon, or the Install button appears when allowed)
+
+Production deployment (Ubuntu + Nginx)
+
+Goal: Node on port 5000 with PM2, Nginx in front with HTTPS.
+
+1) Install Node & git
+# as a sudo-enabled user
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs git
 node -v
 
-5.2 Clone the repo
+2) Get the code & install
 cd /opt
-sudo git clone https://github.com/<your-org-or-user>/<your-repo>.git personal-advisor
+sudo git clone https://github.com/Sear13/personal-advisor-pwa.git personal-advisor
 sudo chown -R $USER:$USER personal-advisor
 cd personal-advisor
 npm ci
 
-5.3 Configure environment
-mkdir -p ai-index/server
+3) Configure environment
+cp ai-index/server/.env.example ai-index/server/.env
 nano ai-index/server/.env
 
 
-Paste:
+Set:
 
 OPENROUTER_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
 ALLOWED_ORIGIN=https://advisor.your-domain.com
-CLASSROOM_SECRET=
+CLASSROOM_SECRET=         # (optional) require x-classroom-key header
 CLEAN_ON_BOOT=0
 MAX_DOWNLOAD_AGE_HOURS=24
 MAX_LOG_AGE_DAYS=7
+# PORT (optional) defaults to 5000
+# PORT=5000
 
-5.4 Run with PM2 (recommended)
+4) Run with PM2 (keeps the app alive)
 sudo npm i -g pm2
 pm2 start ai-index/server/server.js --name personal-advisor
 pm2 save
-pm2 startup  # follow the printed instructions
+pm2 startup   # follow the printed command to enable on boot
 
 
-Check: pm2 status and pm2 logs personal-advisor
+Useful:
 
-5.5 Nginx reverse proxy
+pm2 status
+pm2 logs personal-advisor
+pm2 restart personal-advisor
+
+5) Nginx reverse proxy
 
 Install Nginx:
 
 sudo apt-get install -y nginx
 
 
-Create a site config:
+Create the site config:
 
 sudo nano /etc/nginx/sites-available/personal-advisor.conf
 
@@ -146,8 +158,6 @@ Paste (change the domain):
 
 server {
   server_name advisor.your-domain.com;
-
-  # HTTP -> redirect to HTTPS
   listen 80;
   listen [::]:80;
   location / { return 301 https://$host$request_uri; }
@@ -159,11 +169,10 @@ server {
   listen 443 ssl http2;
   listen [::]:443 ssl http2;
 
-  # Certs (replace with your certbot paths)
+  # Replace with your certbot paths
   ssl_certificate     /etc/letsencrypt/live/advisor.your-domain.com/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/advisor.your-domain.com/privkey.pem;
 
-  # Proxy to Node on 5000
   location / {
     proxy_pass         http://127.0.0.1:5000;
     proxy_http_version 1.1;
@@ -182,96 +191,133 @@ sudo ln -s /etc/nginx/sites-available/personal-advisor.conf /etc/nginx/sites-ena
 sudo nginx -t
 sudo systemctl reload nginx
 
-5.6 HTTPS (Let’s Encrypt)
+6) HTTPS (Let’s Encrypt)
 sudo apt-get install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d advisor.your-domain.com
 
 
-Set ALLOWED_ORIGIN=https://advisor.your-domain.com in .env, then:
+Update .env if needed:
+
+ALLOWED_ORIGIN=https://advisor.your-domain.com
+
+
+Restart:
 
 pm2 restart personal-advisor
 
-5.7 Smoke test
+7) Smoke test
 
 Open https://advisor.your-domain.com
- in a browser.
+.
 DevTools → Application → Manifest should show ✓ installable.
 
-6) Updating the server
+Updating the server
 cd /opt/personal-advisor
 git pull
-npm ci                # if package.json changed
+npm ci                          # if package.json changed
 pm2 restart personal-advisor
 
 
-If the browser shows the old UI (Service Worker caching), hard-refresh or Unregister/Update the Service Worker (DevTools → Application → Service Workers).
+If the UI looks stale: hard refresh or unregister/update the Service Worker in DevTools.
 
-7) Security & CORS
-
-ALLOWED_ORIGIN must match the frontend origin (e.g., https://advisor.your-domain.com).
-
-If you set CLASSROOM_SECRET, all /api/chat requests must include:
-
-x-classroom-key: <the-secret>
-
-
-Your OpenRouter API key stays on the server (never sent to the browser).
-
-8) Admin & housekeeping
-
-Generated files (PDF/TXT) are in ai-index/downloads/ and served at /downloads/....
-
-Logs are JSONL in ai-index/server/logs/ (gitignored).
-
-Optional cleanup endpoint (only if CLASSROOM_SECRET is set):
-
-POST /admin/cleanup
-x-classroom-key: <secret>
-
-
-This clears downloads/ and server/logs/.
-
-9) Troubleshooting
+Troubleshooting
 
 Install button doesn’t appear
 
-Must be HTTPS; ensure /manifest.webmanifest and /sw.js are reachable.
+Must be HTTPS; /manifest.webmanifest and /sw.js must be reachable at site root.
 
-DevTools → Application → “Installability” for diagnostics.
+DevTools → Application → “Installability” shows diagnostics.
 
 CORS error
 
-ALLOWED_ORIGIN must match the exact domain you open in the browser.
+ALLOWED_ORIGIN must exactly match the public site URL (protocol + host).
 
-Restart PM2 after .env changes.
-
-UI looks stale
-
-Service Worker caching — do a hard refresh, or unregister SW in DevTools.
-
-OpenRouter error
+Provider error
 
 Verify OPENROUTER_API_KEY and model availability on your plan.
 
-Check server logs: pm2 logs personal-advisor.
+Logs: pm2 logs personal-advisor.
 
-10) Notes for assessors
+Where files/logs go
 
-No DB, no migrations.
+Generated files: ai-index/downloads/ (served at /downloads/...)
 
-Run locally with npm run start.
+Logs: ai-index/server/logs/ (gitignored)
 
-Clean, commented server (ai-index/server/server.js).
-
-Frontend split into small modules in ai-index/app/ for easy maintenance.
-
-11) One-liner API test (from the server)
+One-liner API test (from the server)
 curl -X POST http://127.0.0.1:5000/api/chat \
   -H 'Content-Type: application/json' \
   -d '{"prompt":"Say hello","sessionId":"test"}'
 
+License
 
-You should receive JSON with the model’s reply.
+MIT (see LICENSE)
 
-License: MIT (see LICENSE)
+Optional helper files
+
+ai-index/server/.env.example
+
+# REQUIRED
+OPENROUTER_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
+
+# CORS (frontend origin)
+ALLOWED_ORIGIN=http://localhost:5000
+
+# Optional API gate (if set, clients must send x-classroom-key: <value>)
+CLASSROOM_SECRET=
+
+# Housekeeping
+CLEAN_ON_BOOT=0
+MAX_DOWNLOAD_AGE_HOURS=24
+MAX_LOG_AGE_DAYS=7
+
+# PORT support (defaults to 5000)
+# PORT=5000
+
+
+deploy/nginx.conf
+
+# Copy to /etc/nginx/sites-available/personal-advisor.conf and adjust domain/cert paths
+server {
+  server_name advisor.your-domain.com;
+  listen 80;
+  listen [::]:80;
+  location / { return 301 https://$host$request_uri; }
+}
+
+server {
+  server_name advisor.your-domain.com;
+
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+
+  ssl_certificate     /etc/letsencrypt/live/advisor.your-domain.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/advisor.your-domain.com/privkey.pem;
+
+  location / {
+    proxy_pass         http://127.0.0.1:5000;
+    proxy_http_version 1.1;
+    proxy_set_header   Upgrade $http_upgrade;
+    proxy_set_header   Connection "upgrade";
+    proxy_set_header   Host $host;
+    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+  }
+}
+
+
+**pm2.config.cjs (optional)
+module.exports = {
+  apps: [
+    {
+      name: "personal-advisor",
+      script: "ai-index/server/server.js",
+      env: {
+        NODE_ENV: "production",
+        PORT: 5000
+      }
+    }
+  ]
+};
+
 Author: Dimitrios Katsikis 
