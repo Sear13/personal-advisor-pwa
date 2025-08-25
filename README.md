@@ -1,6 +1,6 @@
 Personal Advisor PWA (ChatBot)
 
-DEMO in Stackblitz https://stackblitz.com/~/github.com/Sear13/personal-advisor-pwa!(Just For Showcase the api works if you download the below repo).
+DEMO in Stackblitz https://stackblitz.com/~/github.com/Sear13/personal-advisor-pwa! (Just For Showcase the api works if you download the below repo).
 
 An installable Progressive Web App with a small Node/Express backend that proxies to OpenRouter (LLM provider).
 No build step, no database — configure .env, run the server, and you’re up.
