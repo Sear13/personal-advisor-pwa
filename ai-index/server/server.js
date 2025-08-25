@@ -22,16 +22,21 @@ dotenv.config({ path: path.join(PROJECT_ROOT, ".env") }); // fallback
 
 /* -------------------- env & constants -------------------- */
 const API_URL        = "https://openrouter.ai/api/v1/chat/completions";
-const API_KEY        = process.env.OPENROUTER_API_KEY;            // from .env
-const CLASS_SECRET   = process.env.CLASSROOM_SECRET || "";         // optional gate
+const API_KEY        = process.env.OPENROUTER_API_KEY || "";     // from .env
+const CLASS_SECRET   = process.env.CLASSROOM_SECRET || "";       // optional gate
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "http://localhost:5000";
+
+// demo mode: on if DEMO_MODE=1 or when no API key is provided
+const DEMO_MODE =
+  process.env.DEMO_MODE === "1" || !API_KEY;
 
 // cleanup config (all optional)
 const CLEAN_ON_BOOT          = (process.env.CLEAN_ON_BOOT || "0") === "1";
 const MAX_DOWNLOAD_AGE_HOURS = Number(process.env.MAX_DOWNLOAD_AGE_HOURS || 24);
 const MAX_LOG_AGE_DAYS       = Number(process.env.MAX_LOG_AGE_DAYS || 7);
 
-if (!API_KEY) {
+// in real mode (not demo), require an API key
+if (!API_KEY && !DEMO_MODE) {
   console.error(" Missing OPENROUTER_API_KEY in .env (server/.env or project/.env)");
   process.exit(1);
 }
@@ -43,7 +48,8 @@ const app = express();
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // allow server-to-server / curl
+      if (!origin) return cb(null, true);                     // allow server-to-server / curl
+      if (DEMO_MODE && ALLOWED_ORIGIN === "*") return cb(null, true); // demo convenience
       return origin === ALLOWED_ORIGIN ? cb(null, true) : cb(new Error("Not allowed by CORS"));
     },
   })
@@ -111,6 +117,17 @@ function stripAutoPdfOffers(s = "") {
     .replace(/^\s*(?:💡|📎)?\s*would you like me to prepare a pdf of this\?\s*$/gim, "")
     .replace(/^\s*(?:💡|📎)?\s*i can prepare a pdf.*$/gim, "")
     .trim();
+}
+
+/* -------------------- DEMO reply helper -------------------- */
+function demoReply(prompt = "") {
+  const p = String(prompt || "").trim();
+  const preview = p.length ? `"${p.slice(0, 200)}"` : "your message";
+  return [
+    "🧪 Demo mode (no API key).",
+    `I received ${preview}.`,
+    "In production this route calls OpenRouter and streams an LLM’s answer.",
+  ].join(" ");
 }
 
 /* -------------------- logs (kept under server/logs) -------------------- */
@@ -303,12 +320,36 @@ app.post("/admin/cleanup", classroomGate, async (_req, res) => {
 
 /* ----------------------------- API: chat ------------------------------ */
 app.post("/api/chat", classroomGate, async (req, res) => {
-  const { prompt, sessionId } = req.body;
+  const { prompt, sessionId } = req.body || {};
   if (!prompt?.trim()) return res.status(400).json({ error: "Prompt is required" });
 
   try {
     appendLog(sessionId, { role: "user", content: prompt });
 
+    // DEMO short-circuit
+    if (DEMO_MODE) {
+      let content = demoReply(prompt);
+
+      // honor explicit file requests in demo too
+      const wantsPdf = /\b(pdf|save as pdf|download pdf)\b/i.test(prompt);
+      const wantsTxt = /\b(txt|text file|download txt)\b/i.test(prompt);
+
+      if (wantsPdf) {
+        const pdfUrl = await generatePdfFromText(content, "ai-output");
+        if (pdfUrl) content += `\n\n✅ Here is your PDF: [Download it](${pdfUrl}).`;
+        else content += `\n\n(⚠️ PDF generation failed. Fallback:) [Sample PDF](${FALLBACK_PDF}).`;
+      }
+      if (wantsTxt) {
+        const txtUrl = generateTxtFromText(markdownToPlain(content), "ai-output");
+        if (txtUrl) content += `\n\n📝 Here is your TXT: [Download it](${txtUrl}).`;
+        else content += `\n\n(⚠️ TXT generation failed.)`;
+      }
+
+      appendLog(sessionId, { role: "assistant", content });
+      return res.json({ choices: [{ message: { content } }] });
+    }
+
+    // REAL call (OpenRouter)
     const r = await fetch(API_URL, {
       method: "POST",
       headers: {
@@ -376,4 +417,8 @@ app.get("/", (_req, res) => {
 
 /* ------------------------------ start ------------------------------ */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(
+    `Server running at http://localhost:${PORT} ${DEMO_MODE ? "(demo mode)" : ""}`
+  )
+);
