@@ -25,6 +25,9 @@ const API_URL        = "https://openrouter.ai/api/v1/chat/completions";
 const API_KEY        = process.env.OPENROUTER_API_KEY || "";     // from .env
 const CLASS_SECRET   = process.env.CLASSROOM_SECRET || "";       // optional gate
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "http://localhost:5000";
+// const MODEL_ID       = process.env.MODEL_ID || "openai/gpt-3.5-turbo"; 
+// const MODEL_ID       = process.env.MODEL_ID || "meta-llama/llama-3.1-8b-instruct:free";
+
 
 // demo mode: on if DEMO_MODE=1 or when no API key is provided
 const DEMO_MODE =
@@ -357,7 +360,8 @@ app.post("/api/chat", classroomGate, async (req, res) => {
         Authorization: `Bearer ${API_KEY}`,
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-r1:free",
+        //  model: MODEL_ID,
+         model: "deepseek/deepseek-r1:free",
         messages: [
           {
             role: "system",

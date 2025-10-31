@@ -11,7 +11,8 @@ export class ChatClient {
     if (this.classroomKey) headers["x-classroom-key"] = this.classroomKey;
 
     const body = JSON.stringify({ prompt, sessionId });
-    const doFetch = () => fetch(this.baseUrl, { method: "POST", headers, body, signal });
+    const doFetch = () =>
+      fetch(this.baseUrl, { method: "POST", headers, body, signal });
 
     const withTimeout = (p) =>
       Promise.race([
@@ -26,7 +27,9 @@ export class ChatClient {
       try {
         const r = await withTimeout(doFetch());
         let data = null;
-        try { data = await r.json(); } catch {}
+        try {
+          data = await r.json();
+        } catch {}
         if (!r.ok) {
           const msg =
             typeof data?.error === "string"
@@ -34,12 +37,16 @@ export class ChatClient {
               : data?.error?.message || "Unknown server error";
           throw new Error(`Server error ${r.status}: ${msg}`);
         }
-        return data?.choices?.[0]?.message?.content ?? "No response from model.";
+        return (
+          data?.choices?.[0]?.message?.content ?? "No response from model."
+        );
       } catch (e) {
         lastErr = e;
         if (i === RETRIES) throw e;
         await new Promise((res) => setTimeout(res, 600));
       }
+      // console.log("[AI] Using model:", MODEL_ID);
+      // console.log("[AI] API key present:", !!process.env.OPENROUTER_API_KEY);
     }
     throw lastErr;
   }

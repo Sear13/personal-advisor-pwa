@@ -6,7 +6,6 @@ export class ChatUI {
     this.client = client;
     this.advisor = advisor;
 
-    // DOM
     this.input = $("#promptInput");
     this.sendBtn = $("#generateBtn");
     this.stopBtn = $("#stopBtn");
@@ -14,7 +13,7 @@ export class ChatUI {
     this.panel = $("#messages");
     this.scrollBtn = $("#scrollDownBtn");
 
-    // Create reload button if not provided in HTML
+
     if (!this.reloadBtn) {
       const actions = this.sendBtn?.parentElement || document.querySelector(".actions");
       if (actions) {
@@ -26,6 +25,7 @@ export class ChatUI {
         this.reloadBtn.textContent = "↻";
         actions.insertBefore(this.reloadBtn, this.sendBtn || null);
       }
+      console.log("[AI] model:", MODEL_ID, "prompt snippet:", prompt.slice(0,60));
     }
 
     this.controller = null;
